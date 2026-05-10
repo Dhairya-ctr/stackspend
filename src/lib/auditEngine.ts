@@ -16,12 +16,12 @@ export function auditTool(input: AuditInput): AuditResult {
     const { tool, plan, seats, monthlySpend, useCase } = input;
 
     // ChatGPT rules
-    if (tool === "chatgpt" && plan === "team" && seats <= 2) {
+    if (tool === "chatgpt" && useCase === "coding") {
         return {
-            recommendation: "Switch to ChatGPT Plus",
-            savings: monthlySpend - 20,
+            recommendation: "Consider Cursor Pro + ChatGPT Free",
+            savings: 10,
             reason:
-                "ChatGPT Team is usually unnecessary for very small teams without collaboration requirements.",
+                "Developer-focused workflows may get better value from coding-first AI tools.",
         };
     }
 
@@ -65,6 +65,15 @@ export function auditTool(input: AuditInput): AuditResult {
         };
     }
 
+    if (monthlySpend > 150 && seats === 1) {
+        return {
+            recommendation: "Review enterprise-tier subscriptions",
+            savings: 50,
+            reason:
+                "High monthly spend for a solo user may indicate overprovisioned plans.",
+        };
+    }
+
     // Already optimized fallback
     return {
         recommendation: "Current plan looks optimized",
@@ -73,3 +82,4 @@ export function auditTool(input: AuditInput): AuditResult {
             "No significantly cheaper or better-fit alternative was identified based on the provided inputs.",
     };
 }
+
