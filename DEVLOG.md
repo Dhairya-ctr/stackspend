@@ -49,3 +49,28 @@
 - Write unit tests for audit logic
 - Improve result explanations and recommendation quality
 - Add edge-case validation
+
+
+---
+
+## Day 3 — 2026-05-10
+
+**Hours worked:** 2
+
+**What I did:**
+- Reviewed audit recommendation quality and edge cases
+- Refined pricing research and audit heuristics
+- Planned validation and persistence improvements
+- Reviewed architecture and testing requirements before implementation
+
+**What I learned:**
+- Small UX improvements and validation significantly improve product credibility
+- Recommendation quality matters more than adding excessive features
+
+**Blockers / constraints:**
+- Limited development time today due to travel schedule
+
+**Plan for tomorrow:**
+- Implement localStorage persistence
+- Add unit tests for audit logic
+- Improve recommendation explanations and validation
