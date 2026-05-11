@@ -1,20 +1,51 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auditTool, type AuditInput, type AuditResult } from "@/lib/auditEngine";
+import { auditTool, type AuditInput, type AuditResult, type Confidence } from "@/lib/auditEngine";
 import { pricing, toolOptions, useCases } from "@/data/pricing";
 
 type PricingKey = keyof typeof pricing;
 
-export default function AuditForm() {
-  const [tool, setTool] = useState<string>("");
-  const [plan, setPlan] = useState<string>("");
-  const [monthlySpend, setMonthlySpend] = useState<string>("");
-  const [seats, setSeats] = useState<string>("");
-  const [useCase, setUseCase] = useState<string>("");
-  const [result, setResult] = useState<AuditResult | null>(null);
+// ---------- helpers ----------
 
-  // Restore persisted values on first render
+function validateSpend(raw: string): string | null {
+  if (raw === "" || raw === undefined) return null; // empty = not yet touched
+  const n = parseFloat(raw);
+  if (isNaN(n))   return "Enter a valid number.";
+  if (n < 0)      return "Spend cannot be negative.";
+  return null;
+}
+
+function validateSeats(raw: string): string | null {
+  if (raw === "" || raw === undefined) return null;
+  const n = parseInt(raw, 10);
+  if (isNaN(n))  return "Enter a whole number.";
+  if (n < 1)     return "Minimum 1 seat required.";
+  return null;
+}
+
+const CONFIDENCE_META: Record<Confidence, { label: string; className: string }> = {
+  high:      { label: "High Savings Opportunity", className: "text-emerald-400 bg-emerald-400/10 border-emerald-400/30" },
+  moderate:  { label: "Moderate Optimization",    className: "text-amber-400  bg-amber-400/10  border-amber-400/30"  },
+  optimized: { label: "Already Optimized",         className: "text-zinc-400   bg-zinc-400/10   border-zinc-400/30"   },
+};
+
+// ---------- component ----------
+
+export default function AuditForm() {
+  const [tool,         setTool        ] = useState<string>("");
+  const [plan,         setPlan        ] = useState<string>("");
+  const [monthlySpend, setMonthlySpend] = useState<string>("");
+  const [seats,        setSeats       ] = useState<string>("");
+  const [useCase,      setUseCase     ] = useState<string>("");
+  const [result,       setResult      ] = useState<AuditResult | null>(null);
+  const [isLoading,    setIsLoading   ] = useState(false);
+
+  // Track whether the user has interacted with a field (for inline errors)
+  const [touchedSpend, setTouchedSpend] = useState(false);
+  const [touchedSeats, setTouchedSeats] = useState(false);
+
+  // ---- localStorage restore (once on mount) ----
   useEffect(() => {
     const saved = {
       tool:         localStorage.getItem("audit_tool")         ?? "",
@@ -30,7 +61,7 @@ export default function AuditForm() {
     if (saved.useCase)      setUseCase(saved.useCase);
   }, []);
 
-  // Persist values whenever they change
+  // ---- localStorage persist on every change ----
   useEffect(() => {
     localStorage.setItem("audit_tool",         tool);
     localStorage.setItem("audit_plan",         plan);
@@ -39,35 +70,80 @@ export default function AuditForm() {
     localStorage.setItem("audit_useCase",      useCase);
   }, [tool, plan, seats, monthlySpend, useCase]);
 
+  // ---- derived validation ----
+  const spendError = touchedSpend ? validateSpend(monthlySpend) : null;
+  const seatsError = touchedSeats ? validateSeats(seats)        : null;
+
   const planOptions = tool ? Object.keys(pricing[tool as PricingKey] ?? {}) : [];
 
+  const isFormValid =
+    tool && plan && useCase &&
+    monthlySpend !== "" && !validateSpend(monthlySpend) &&
+    seats        !== "" && !validateSeats(seats);
+
+  // ---- handlers ----
   function handleToolChange(value: string) {
     setTool(value);
     setPlan("");
     setResult(null);
   }
 
+  /** Clamp spend to 0 on blur so the stored value is always clean. */
+  function handleSpendBlur() {
+    setTouchedSpend(true);
+    const n = parseFloat(monthlySpend);
+    if (!isNaN(n) && n < 0) setMonthlySpend("0");
+  }
+
+  /** Clamp seats to 1 on blur. */
+  function handleSeatsBlur() {
+    setTouchedSeats(true);
+    const n = parseInt(seats, 10);
+    if (!isNaN(n) && n < 1) setSeats("1");
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!tool || !plan || !monthlySpend || !seats || !useCase) return;
+    if (!isFormValid) return;
 
+    setIsLoading(true);
+    setResult(null);
+
+    // Use Math.max for a final safety net before passing to engine
     const input: AuditInput = {
       tool,
       plan,
-      monthlySpend: parseFloat(monthlySpend),
-      seats: parseInt(seats, 10),
+      monthlySpend: Math.max(0, parseFloat(monthlySpend)),
+      seats:        Math.max(1, parseInt(seats, 10)),
       useCase,
     };
 
-    const auditResult = auditTool(input);
-    setResult(auditResult);
+    // Tiny artificial delay so the loading state is perceptible
+    setTimeout(() => {
+      setResult(auditTool(input));
+      setIsLoading(false);
+    }, 350);
   }
 
-  const isFormValid = tool && plan && monthlySpend && seats && useCase;
+  // ---- shared input/select class builders ----
+  const selectCls = (disabled = false) =>
+    `w-full bg-zinc-900 border rounded-lg px-4 py-2.5 text-white text-sm
+     focus:outline-none focus:ring-2 focus:ring-white/20 transition
+     capitalize appearance-none cursor-pointer
+     ${disabled ? "border-zinc-800 opacity-40 cursor-not-allowed" : "border-zinc-800"}`;
 
+  const inputCls = (hasError: boolean) =>
+    `w-full bg-zinc-900 border rounded-lg px-4 py-2.5 text-white text-sm
+     focus:outline-none focus:ring-2 transition placeholder:text-zinc-600
+     ${hasError
+       ? "border-red-500/60 focus:ring-red-500/20"
+       : "border-zinc-800 focus:ring-white/20"}`;
+
+  // ---- render ----
   return (
     <div className="w-full max-w-xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+
         {/* Tool */}
         <div>
           <label htmlFor="tool" className="block text-sm font-medium text-zinc-400 mb-1.5">
@@ -77,11 +153,9 @@ export default function AuditForm() {
             id="tool"
             value={tool}
             onChange={(e) => handleToolChange(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 transition capitalize appearance-none cursor-pointer"
+            className={selectCls()}
           >
-            <option value="" disabled>
-              Select a tool
-            </option>
+            <option value="" disabled>Select a tool</option>
             {toolOptions.map((t) => (
               <option key={t} value={t} className="capitalize">
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -100,7 +174,7 @@ export default function AuditForm() {
             value={plan}
             onChange={(e) => { setPlan(e.target.value); setResult(null); }}
             disabled={!tool}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 transition capitalize appearance-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className={selectCls(!tool)}
           >
             <option value="" disabled>
               {tool ? "Select a plan" : "Choose a tool first"}
@@ -127,8 +201,12 @@ export default function AuditForm() {
               placeholder="e.g. 60"
               value={monthlySpend}
               onChange={(e) => { setMonthlySpend(e.target.value); setResult(null); }}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 transition placeholder:text-zinc-600"
+              onBlur={handleSpendBlur}
+              className={inputCls(!!spendError)}
             />
+            {spendError && (
+              <p className="mt-1 text-xs text-red-400">{spendError}</p>
+            )}
           </div>
 
           <div>
@@ -143,8 +221,12 @@ export default function AuditForm() {
               placeholder="e.g. 3"
               value={seats}
               onChange={(e) => { setSeats(e.target.value); setResult(null); }}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 transition placeholder:text-zinc-600"
+              onBlur={handleSeatsBlur}
+              className={inputCls(!!seatsError)}
             />
+            {seatsError && (
+              <p className="mt-1 text-xs text-red-400">{seatsError}</p>
+            )}
           </div>
         </div>
 
@@ -157,11 +239,9 @@ export default function AuditForm() {
             id="useCase"
             value={useCase}
             onChange={(e) => { setUseCase(e.target.value); setResult(null); }}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-white/20 transition capitalize appearance-none cursor-pointer"
+            className={selectCls()}
           >
-            <option value="" disabled>
-              Select a use case
-            </option>
+            <option value="" disabled>Select a use case</option>
             {useCases.map((uc) => (
               <option key={uc} value={uc} className="capitalize">
                 {uc.charAt(0).toUpperCase() + uc.slice(1)}
@@ -173,30 +253,55 @@ export default function AuditForm() {
         {/* Submit */}
         <button
           type="submit"
-          disabled={!isFormValid}
-          className="w-full bg-white text-black font-semibold py-3 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer"
+          disabled={!isFormValid || isLoading}
+          className="w-full bg-white text-black font-semibold py-3 rounded-xl
+                     hover:scale-[1.02] active:scale-[0.98] transition
+                     disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed
+                     cursor-pointer flex items-center justify-center gap-2"
         >
-          Audit Stack
+          {isLoading ? (
+            <>
+              <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              Analyzing…
+            </>
+          ) : !isFormValid ? (
+            "Complete all fields to audit"
+          ) : (
+            "Audit Stack"
+          )}
         </button>
       </form>
 
-      {/* Result */}
-      {result && (
-        <div className="mt-8 border border-zinc-800 rounded-xl p-6 bg-zinc-900/60 space-y-4 animate-in fade-in duration-300">
+      {/* Result panel */}
+      {result && !isLoading && (
+        <div className="mt-8 border border-zinc-800 rounded-xl p-6 bg-zinc-900/60 space-y-5 animate-in fade-in duration-300">
+
+          {/* Confidence badge */}
+          <div>
+            <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full border ${CONFIDENCE_META[result.confidence].className}`}>
+              {CONFIDENCE_META[result.confidence].label}
+            </span>
+          </div>
+
+          {/* Recommendation */}
           <div>
             <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Recommendation</p>
             <p className="text-lg font-semibold text-white">{result.recommendation}</p>
           </div>
 
+          {/* Savings */}
           <div>
-            <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Estimated Savings</p>
-            <p className={`text-2xl font-bold ${result.savings > 0 ? "text-emerald-400" : "text-zinc-400"}`}>
-              {result.savings > 0 ? `$${result.savings.toFixed(2)}/mo` : "—"}
-            </p>
+            <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Estimated Monthly Savings</p>
+            {result.savings > 0 ? (
+              <p className="text-2xl font-bold text-emerald-400">${result.savings.toFixed(2)}/mo</p>
+            ) : (
+              <p className="text-sm text-zinc-500 italic">No savings identified — you&apos;re already on a good plan.</p>
+            )}
           </div>
 
+          {/* Reason */}
           <div>
-            <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Reason</p>
+            <p className="text-xs uppercase tracking-widest text-zinc-500 mb-1">Why</p>
             <p className="text-sm text-zinc-300 leading-relaxed">{result.reason}</p>
           </div>
         </div>

@@ -74,3 +74,34 @@
 - Implement localStorage persistence
 - Add unit tests for audit logic
 - Improve recommendation explanations and validation
+
+
+---
+
+## Day 4 — 2026-05-11
+
+**Hours worked:** 7
+
+**What I did:**
+- Added localStorage persistence for audit form state
+- Implemented form validation and edge-case handling
+- Improved audit recommendation quality and reasoning
+- Added optimization severity labels and better result states
+- Improved loading, empty, and no-savings UI states
+- Set up Vitest and wrote unit tests for the audit engine
+- Documented testing coverage in TESTS.md
+
+**What I learned:**
+- Small UX and validation improvements significantly increase perceived product quality
+- Separating recommendation logic from UI makes testing and iteration much easier
+- Good recommendation explanations build more trust than aggressive savings claims
+
+**Blockers / what I'm stuck on:**
+- Balancing simple recommendation logic with realistic financial reasoning
+- Avoiding feature creep while still making the product feel polished
+
+**Plan for tomorrow:**
+- Final UI polish and mobile responsiveness
+- Improve README and screenshots
+- Complete entrepreneurial documentation files
+- Final testing and deployment review
