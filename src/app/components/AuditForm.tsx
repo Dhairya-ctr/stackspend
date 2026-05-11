@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auditTool, type AuditInput, type AuditResult } from "@/lib/auditEngine";
 import { pricing, toolOptions, useCases } from "@/data/pricing";
 
@@ -13,6 +13,31 @@ export default function AuditForm() {
   const [seats, setSeats] = useState<string>("");
   const [useCase, setUseCase] = useState<string>("");
   const [result, setResult] = useState<AuditResult | null>(null);
+
+  // Restore persisted values on first render
+  useEffect(() => {
+    const saved = {
+      tool:         localStorage.getItem("audit_tool")         ?? "",
+      plan:         localStorage.getItem("audit_plan")         ?? "",
+      seats:        localStorage.getItem("audit_seats")        ?? "",
+      monthlySpend: localStorage.getItem("audit_monthlySpend") ?? "",
+      useCase:      localStorage.getItem("audit_useCase")      ?? "",
+    };
+    if (saved.tool)         setTool(saved.tool);
+    if (saved.plan)         setPlan(saved.plan);
+    if (saved.seats)        setSeats(saved.seats);
+    if (saved.monthlySpend) setMonthlySpend(saved.monthlySpend);
+    if (saved.useCase)      setUseCase(saved.useCase);
+  }, []);
+
+  // Persist values whenever they change
+  useEffect(() => {
+    localStorage.setItem("audit_tool",         tool);
+    localStorage.setItem("audit_plan",         plan);
+    localStorage.setItem("audit_seats",        seats);
+    localStorage.setItem("audit_monthlySpend", monthlySpend);
+    localStorage.setItem("audit_useCase",      useCase);
+  }, [tool, plan, seats, monthlySpend, useCase]);
 
   const planOptions = tool ? Object.keys(pricing[tool as PricingKey] ?? {}) : [];
 
