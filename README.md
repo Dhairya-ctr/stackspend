@@ -13,7 +13,7 @@ The product provides instant recommendations, estimated monthly + annual savings
 
 ## Live Demo
 
-Deployed URL: https://YOUR-VERCEL-URL.vercel.app
+Deployed URL: https://stackspend-five.vercel.app/
 
 ---
 
